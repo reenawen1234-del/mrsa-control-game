@@ -90,7 +90,7 @@
     
     .patient-card.active {
       border-left: 5px solid #3b82f6;
-      background: linear-gradient(to right, #eff6ff, #ffffff);
+      background: linear-gradient(to right, #eff6ff, #1e293b);
     }
     
     .patient-card.active:after {
@@ -505,7 +505,7 @@
       document.getElementById('xp-display').textContent = gameState.xp;
       document.getElementById('xp-current').textContent = xpCurrent;
       document.getElementById('xp-needed').textContent = xpNeeded;
-      document.getElementById('xp-bar').style.width = `${percentage}%`;
+      document.getElementById('xp-bar').style.width = percentage + '%';
       document.getElementById('level-display').textContent = gameState.level;
     }
 
@@ -513,7 +513,7 @@
       const xpNeeded = getXPForLevel(gameState.level);
       if (gameState.xp >= xpNeeded * gameState.level) {
         gameState.level++;
-        showToast(`🎉 Level Up! Now Level ${gameState.level}`, 'success');
+        showToast('🎉 Level Up! Now Level ' + gameState.level, 'success');
         updateXPDisplay();
       }
     }
@@ -526,32 +526,37 @@
       }
       document.getElementById('streak-count').textContent = gameState.streak;
       
-      if (gameState.streak >= 5 && !gameState.achievements.includes('hot-streak')) {
+      if (gameState.streak >= 5 && gameState.achievements.indexOf('hot-streak') === -1) {
         gameState.achievements.push('hot-streak');
         showToast('🏆 Achievement: Hot Streak! (5 optimal decisions)', 'success');
       }
     }
 
     function updateStats() {
-      const optimalCount = gameState.decisions.filter(d => d.outcome === 'optimal').length;
+      const optimalCount = gameState.decisions.filter(function(d) { return d.outcome === 'optimal'; }).length;
       const totalCount = gameState.decisions.length;
       const successRate = totalCount > 0 ? Math.round((optimalCount / totalCount) * 100) : 0;
       
       document.getElementById('optimal-count').textContent = optimalCount;
       document.getElementById('total-decisions').textContent = totalCount;
-      document.getElementById('success-rate').textContent = `${successRate}%`;
+      document.getElementById('success-rate').textContent = successRate + '%';
     }
 
     // Calculate infection spread metrics
     function updateInfectionSpread() {
       const wardRisk = 100 - gameState.wardSafety;
-      const activeCases = patients.filter(p => {
-        const state = gameState.patientStates[p.id];
-        return state.health < 70 || p.mrsaStatus.includes('MRSA+') || p.mrsaStatus.includes('Confirmed');
-      }).length;
+      let activeCases = 0;
       
-      document.getElementById('ward-risk-percent').textContent = `${wardRisk}%`;
-      document.getElementById('ward-risk-bar').style.width = `${wardRisk}%`;
+      for (let i = 0; i < patients.length; i++) {
+        const p = patients[i];
+        const state = gameState.patientStates[p.id];
+        if (state.health < 70 || p.mrsaStatus.indexOf('MRSA+') !== -1 || p.mrsaStatus.indexOf('Confirmed') !== -1) {
+          activeCases++;
+        }
+      }
+      
+      document.getElementById('ward-risk-percent').textContent = wardRisk + '%';
+      document.getElementById('ward-risk-bar').style.width = wardRisk + '%';
       document.getElementById('active-cases').textContent = activeCases;
     }
 
@@ -563,9 +568,7 @@
       }
       
       const state = gameState.patientStates[patient.id];
-      const scenario = patient.scenarios[state.scenarioIndex];
       
-      // Generate vitals based on health and scenario
       let temp = '37.2°C';
       let hr = '82 bpm';
       let bp = '128/78';
@@ -586,28 +589,32 @@
         spo2 = '96%';
       }
       
-      document.getElementById('vitals-content').innerHTML = `
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">Temperature:</span>
-          <span class="font-bold ${state.health < 70 ? 'text-orange-400' : 'text-green-400'}">${temp}</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">Heart Rate:</span>
-          <span class="font-bold ${state.health < 70 ? 'text-orange-400' : 'text-cyan-400'}">${hr}</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">Blood Pressure:</span>
-          <span class="font-bold text-cyan-400">${bp}</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">Resp. Rate:</span>
-          <span class="font-bold ${state.health < 70 ? 'text-orange-400' : 'text-cyan-400'}">${rr}/min</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">SpO₂:</span>
-          <span class="font-bold ${state.health < 60 ? 'text-red-400' : state.health < 80 ? 'text-orange-400' : 'text-green-400'}">${spo2}</span>
-        </div>
-      `;
+      const tempColor = state.health < 70 ? 'text-orange-400' : 'text-green-400';
+      const hrColor = state.health < 70 ? 'text-orange-400' : 'text-cyan-400';
+      const spo2Color = state.health < 60 ? 'text-red-400' : (state.health < 80 ? 'text-orange-400' : 'text-green-400');
+      const rrColor = state.health < 70 ? 'text-orange-400' : 'text-cyan-400';
+      
+      document.getElementById('vitals-content').innerHTML = 
+        '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">Temperature:</span>' +
+        '<span class="font-bold ' + tempColor + '">' + temp + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">Heart Rate:</span>' +
+        '<span class="font-bold ' + hrColor + '">' + hr + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">Blood Pressure:</span>' +
+        '<span class="font-bold text-cyan-400">' + bp + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">Resp. Rate:</span>' +
+        '<span class="font-bold ' + rrColor + '">' + rr + '/min</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">SpO₂:</span>' +
+        '<span class="font-bold ' + spo2Color + '">' + spo2 + '</span>' +
+        '</div>';
     }
 
     // Update patient status display
@@ -634,36 +641,38 @@
         statusText = 'Improving';
       }
       
-      const riskColors = {
-        low: 'text-emerald-400',
-        moderate: 'text-amber-400',
-        high: 'text-red-400'
+      const riskColorMap = {
+        'low': 'text-emerald-400',
+        'moderate': 'text-amber-400',
+        'high': 'text-red-400'
       };
+      const riskColor = riskColorMap[patient.riskLevel];
       
-      document.getElementById('patient-status-content').innerHTML = `
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">Condition:</span>
-          <span class="font-bold ${statusColor}">${statusText}</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">MRSA Status:</span>
-          <span class="font-bold ${riskColors[patient.riskLevel]}">${patient.mrsaStatus.split(' -')[0]}</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">Risk Level:</span>
-          <span class="font-bold ${riskColors[patient.riskLevel]}">${patient.riskLevel.toUpperCase()}</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-slate-400">Progress:</span>
-          <span class="font-bold text-purple-400">${state.scenarioIndex}/${patient.scenarios.length}</span>
-        </div>
-        ${scenario ? `
-        <div class="mt-2 pt-2 border-t border-slate-600">
-          <span class="text-slate-400 text-xs">Current Phase:</span>
-          <span class="font-bold text-xs text-purple-400 ml-2">${scenario.category.toUpperCase()}</span>
-        </div>
-        ` : ''}
-      `;
+      let html = '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">Condition:</span>' +
+        '<span class="font-bold ' + statusColor + '">' + statusText + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">MRSA Status:</span>' +
+        '<span class="font-bold ' + riskColor + '">' + patient.mrsaStatus.split(' -')[0] + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">Risk Level:</span>' +
+        '<span class="font-bold ' + riskColor + '">' + patient.riskLevel.toUpperCase() + '</span>' +
+        '</div>' +
+        '<div class="flex justify-between items-center">' +
+        '<span class="text-slate-400">Progress:</span>' +
+        '<span class="font-bold text-purple-400">' + state.scenarioIndex + '/' + patient.scenarios.length + '</span>' +
+        '</div>';
+      
+      if (scenario) {
+        html += '<div class="mt-2 pt-2 border-t border-slate-600">' +
+          '<span class="text-slate-400 text-xs">Current Phase:</span>' +
+          '<span class="font-bold text-xs text-purple-400 ml-2">' + scenario.category.toUpperCase() + '</span>' +
+          '</div>';
+      }
+      
+      document.getElementById('patient-status-content').innerHTML = html;
     }
 
     // Patient database with expanded scenarios
@@ -714,990 +723,59 @@
                 insight: "Screening is only valuable if results guide action. MRSA-colonized patients have 2-9× higher SSI rates than non-colonized patients in orthopedic surgery."
               }
             ]
-          },
-          {
-            id: "sm2",
-            category: "prevention",
-            title: "Decolonization Protocol",
-            situation: "Sarah's nasal PCR returned positive for MRSA. Surgery has been postponed 5 days for decolonization. You're initiating the protocol.",
-            labValues: "Nasal PCR: MRSA positive. No active infection.",
-            question: "What constitutes the complete decolonization protocol?",
-            choices: [
-              {
-                text: "Mupirocin nasal ointment alone",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: -5,
-                xp: 20,
-                feedback: "Nasal decolonization alone has 50-60% success. Adding chlorhexidine bathing increases success to 70-85% by addressing multiple colonization sites.",
-                insight: "MRSA colonizes multiple body sites. Nasal mucosa is most common (40%) but axilla (30%) and groin (25%) also harbor bacteria. Combination therapy addresses all reservoirs."
-              },
-              {
-                text: "Mupirocin 2% nasal BID plus chlorhexidine 4% daily baths × 5 days; educate patient",
-                outcome: "optimal",
-                healthImpact: 5,
-                wardImpact: 5,
-                xp: 50,
-                feedback: "Perfect protocol! Education is crucial - improper application is the most common cause of decolonization failure.",
-                insight: "Standard regimen: Mupirocin both nares BID + CHG full body wash × 5 days. Patient adherence is critical. Supervised application improves success rates by 20%."
-              },
-              {
-                text: "Oral antibiotics plus topical therapy",
-                outcome: "poor",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Systemic antibiotics are NOT indicated for decolonization. They don't achieve adequate mucosal concentrations and promote resistance.",
-                insight: "Topical mupirocin achieves nasal concentrations >1000 µg/g. Oral antibiotics achieve only 1-5 µg/mL systemically - inadequate for mucosal decolonization."
-              }
-            ]
-          },
-          {
-            id: "sm3",
-            category: "identification",
-            title: "Post-Decolonization Verification",
-            situation: "Sarah completed her 5-day decolonization protocol. Surgery is tomorrow. The surgical team asks if repeat MRSA screening is necessary.",
-            labValues: "Completed: 5 days mupirocin + CHG. Good adherence. No adverse reactions.",
-            question: "Should you perform post-decolonization screening?",
-            choices: [
-              {
-                text: "Yes - screen 24-48h post-protocol; if positive, consider extended decolonization or enhanced precautions",
-                outcome: "optimal",
-                healthImpact: 5,
-                wardImpact: 5,
-                xp: 50,
-                feedback: "Best practice! Verification screening identifies the 20-30% who remain colonized, guiding next steps.",
-                insight: "Post-screening improves outcomes. Persistent carriers benefit from alternative protocols (bleach baths, prolonged course) or enhanced surgical antimicrobial prophylaxis."
-              },
-              {
-                text: "No - protocol completed, proceed with surgery",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 20,
-                feedback: "Decolonization success rate is 70-80%, meaning 20-30% remain colonized. Post-screening identifies persistent carriers needing additional measures.",
-                insight: "Post-decolonization screening 24-48 hours after completion identifies treatment failures. If still positive, consider extended protocol or enhanced surgical precautions."
-              },
-              {
-                text: "Screen but proceed regardless - just documentation",
-                outcome: "poor",
-                healthImpact: -10,
-                wardImpact: -5,
-                xp: 10,
-                feedback: "Screening without acting on results wastes resources. If still positive, surgical risk is elevated and warrants intervention.",
-                insight: "All diagnostic tests should change management. Persistent MRSA after decolonization indicates need for alternative strategies."
-              }
-            ]
-          },
-          {
-            id: "sm4",
-            category: "identification",
-            title: "Early Surgical Site Assessment",
-            situation: "Post-op day 3. Sarah's knee incision shows mild erythema extending 2cm from suture line. No purulence, but increased pain (7/10), warmth. Temp 37.8°C.",
-            labValues: "WBC 10.5 × 10⁹/L (normal post-op). CRP 45 mg/L. Blood glucose 152 mg/dL.",
-            question: "How do you assess this surgical site?",
-            choices: [
-              {
-                text: "Normal post-operative inflammation - continue observation",
-                outcome: "poor",
-                healthImpact: -15,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Increased pain, warmth, expanding erythema suggest early SSI. In MRSA-colonized patients, delays lead to deep infections requiring debridement.",
-                insight: "SSI warning signs: increasing pain (most sensitive), warmth, erythema >2cm, fever. In MRSA+ patients, threshold for intervention should be lower."
-              },
-              {
-                text: "Apply warm compresses and give acetaminophen",
-                outcome: "suboptimal",
-                healthImpact: -10,
-                wardImpact: 0,
-                xp: 15,
-                feedback: "Symptomatic treatment alone delays appropriate intervention. Potential SSI in MRSA-colonized patient requires surgical evaluation.",
-                insight: "In post-op patients with MRSA history, clinical suspicion threshold should be low. Up to 30% develop SSI despite decolonization."
-              },
-              {
-                text: "Obtain wound culture, photograph site, notify surgeon, prepare for empiric MRSA coverage",
-                outcome: "optimal",
-                healthImpact: 5,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent early intervention! Photography documents baseline. Culture before antibiotics. Given MRSA colonization history, empiric coverage appropriate.",
-                insight: "Early SSI detection critical in orthopedic surgery - delays allow biofilm formation on hardware. Serial photography provides objective tracking."
-              }
-            ]
-          },
-          {
-            id: "sm5",
-            category: "treatment",
-            title: "Culture Results Interpretation",
-            situation: "Day 4 post-op. Wound culture: Heavy growth MRSA, sensitive to vancomycin, linezolid, daptomycin. Resistant to methicillin, cephalosporins. Currently on cefazolin.",
-            labValues: "Culture: MRSA (heavy growth). Vanc (S), Linezolid (S), Cefazolin (R). CRP rising to 78 mg/L.",
-            question: "What is the appropriate antibiotic management?",
-            choices: [
-              {
-                text: "Continue cefazolin - standard post-op prophylaxis",
-                outcome: "poor",
-                healthImpact: -20,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "CRITICAL ERROR! MRSA is resistant to all beta-lactams. Continuing ineffective antibiotics allows progression to sepsis or prosthetic joint infection.",
-                insight: "MRSA resistance: mecA gene produces altered PBP2a with low affinity for all beta-lactams. Beta-lactams are completely ineffective."
-              },
-              {
-                text: "Add vancomycin on top of cefazolin for broader coverage",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "While adding vancomycin provides MRSA coverage, continuing cefazolin is unnecessary and adds no benefit since MRSA is resistant.",
-                insight: "Antibiotic stewardship: once pathogen identified, narrow spectrum. Continuing ineffective antibiotics wastes resources and promotes resistance."
-              },
-              {
-                text: "Switch to IV vancomycin immediately; obtain trough levels; consult orthopedic surgery",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent! Immediate switch to effective antibiotic critical. Vancomycin trough monitoring ensures therapeutic levels (15-20 mg/L).",
-                insight: "MRSA SSI management: effective antibiotics + source control (surgery if needed) + prolonged therapy (4-6 weeks). Early intervention prevents chronic osteomyelitis."
-              }
-            ]
-          }
-        ]
-      },
-      {
-        id: 2,
-        name: "James Chen",
-        age: 68,
-        room: "412",
-        admission: "Diabetic Foot Ulcer",
-        baseHealth: 65,
-        mrsaStatus: "Confirmed MRSA+",
-        riskLevel: "high",
-        scenarios: [
-          {
-            id: "jc1",
-            category: "prevention",
-            title: "Contact Precautions Setup",
-            situation: "James Chen admitted with an infected diabetic foot ulcer. Wound culture from ER shows MRSA. Room 412 needs proper isolation precautions established.",
-            labValues: "Wound culture: MRSA. HbA1c: 9.2%. Creatinine: 1.8 mg/dL.",
-            question: "Which isolation measures are required?",
-            choices: [
-              {
-                text: "Standard precautions only - MRSA is common",
-                outcome: "poor",
-                healthImpact: 0,
-                wardImpact: -20,
-                xp: 10,
-                feedback: "CRITICAL ERROR! MRSA requires contact precautions. Standard precautions alone lead to transmission rates of 15-30% to other patients.",
-                insight: "Contact precautions reduce MRSA transmission by 80-90%. Required for all patients with MRSA colonization or infection until 3 negative cultures."
-              },
-              {
-                text: "Droplet precautions with surgical mask",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: -10,
-                xp: 20,
-                feedback: "MRSA spreads via contact, not droplets. Droplet precautions don't address the main transmission route - direct contact and contaminated surfaces.",
-                insight: "MRSA transmission: 80% via hands, 15% via contaminated equipment, 5% via environmental surfaces. Contact precautions target these routes."
-              },
-              {
-                text: "Contact precautions: gown, gloves, dedicated equipment, door sign, hand hygiene education",
-                outcome: "optimal",
-                healthImpact: 0,
-                wardImpact: 15,
-                xp: 50,
-                feedback: "Perfect! Complete contact precautions package. Dedicated equipment prevents cross-contamination. Door signage ensures all staff comply.",
-                insight: "Contact precautions bundle: gown + gloves before entry, dedicated stethoscope/BP cuff, enhanced environmental cleaning, hand hygiene before and after contact."
-              }
-            ]
-          },
-          {
-            id: "jc2",
-            category: "prevention",
-            title: "Hand Hygiene Protocol",
-            situation: "You're caring for James and need to perform wound care, then immediately assess another patient. The sink is across the room, but alcohol hand sanitizer is at the bedside.",
-            labValues: "Active MRSA wound infection with drainage.",
-            question: "What is the appropriate hand hygiene approach?",
-            choices: [
-              {
-                text: "Use alcohol hand sanitizer after removing gloves",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: -5,
-                xp: 20,
-                feedback: "After contact with MRSA wounds with drainage, soap and water is preferred. Alcohol gel is less effective against spore-forming organisms and heavy contamination.",
-                insight: "Alcohol sanitizer: effective for most bacteria (99.9%) but reduced efficacy with heavy soilage. Soap and water mechanically removes organisms."
-              },
-              {
-                text: "Gloves are enough - no additional hand hygiene needed",
-                outcome: "poor",
-                healthImpact: 0,
-                wardImpact: -15,
-                xp: 10,
-                feedback: "CRITICAL ERROR! Gloves can have microscopic tears or contamination during removal. Hand hygiene after glove removal is mandatory - reduces transmission by 50%.",
-                insight: "Up to 30% of gloves develop tears during use. Hands contaminated during glove removal in 10-20% of cases. Hand hygiene after glove removal is essential."
-              },
-              {
-                text: "Remove gloves, wash hands with soap and water for 20 seconds, dry thoroughly",
-                outcome: "optimal",
-                healthImpact: 0,
-                wardImpact: 10,
-                xp: 50,
-                feedback: "Excellent! Soap and water is the gold standard after contact with heavily contaminated sites. 20 seconds ensures adequate mechanical removal.",
-                insight: "Hand hygiene hierarchy for MRSA: 1) Soap and water (visible soil/heavy contamination), 2) Alcohol gel (routine contact). Always after glove removal."
-              }
-            ]
-          },
-          {
-            id: "jc3",
-            category: "identification",
-            title: "Wound Assessment",
-            situation: "James' foot ulcer is 4cm × 3cm on plantar surface. Thick purulent drainage, surrounding erythema 6cm, edema to mid-calf, foul odor. Pedal pulses palpable. He reports numbness.",
-            labValues: "Temp 38.5°C. WBC 16.2 × 10⁹/L. CRP 145 mg/L. Glucose 285 mg/dL. Known MRSA.",
-            question: "What is the depth of infection concern?",
-            choices: [
-              {
-                text: "Superficial skin infection only - treat with oral antibiotics",
-                outcome: "poor",
-                healthImpact: -15,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Erythema extending 6cm, edema to mid-calf, and systemic symptoms indicate deeper infection. Oral antibiotics inadequate for deep tissue involvement.",
-                insight: "Diabetic foot infection classification: Mild (skin only), Moderate (deeper than skin), Severe (systemic symptoms/deep tissue). This is severe."
-              },
-              {
-                text: "Probable deep tissue infection - obtain X-ray to rule out osteomyelitis, start IV vancomycin, consult surgery",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent clinical assessment! Extensive erythema, systemic signs suggest deep infection. Osteomyelitis present in 20% of diabetic foot ulcers with these findings.",
-                insight: "Red flags for osteomyelitis: bone visible/palpable, ulcer >2cm, erythema >2cm, elevated inflammatory markers, failed outpatient therapy. X-ray first step."
-              },
-              {
-                text: "Cellulitis - start IV cefazolin and monitor",
-                outcome: "suboptimal",
-                healthImpact: -10,
-                wardImpact: 0,
-                xp: 15,
-                feedback: "Cefazolin won't cover the known MRSA. Additionally, the severity suggests potential osteomyelitis which needs evaluation beyond cellulitis treatment.",
-                insight: "Known MRSA requires MRSA-active antibiotics. Diabetic foot infections often polymicrobial, but proven MRSA dictates coverage."
-              }
-            ]
-          },
-          {
-            id: "jc4",
-            category: "identification",
-            title: "Osteomyelitis Diagnosis",
-            situation: "X-ray shows bone destruction at 1st metatarsal head. Orthopedics requests additional imaging to determine surgical need. ESR 95 mm/hr, CRP 145 mg/L.",
-            labValues: "X-ray: Lytic changes 1st metatarsal. ESR 95. CRP 145. Probe-to-bone test: positive.",
-            question: "What is the best next diagnostic step?",
-            choices: [
-              {
-                text: "Start antibiotics immediately - imaging not needed, clinical diagnosis clear",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "While starting antibiotics is appropriate, MRI helps surgical planning by defining infection extent. Treatment duration (6 weeks vs 3 months) depends on bone involvement.",
-                insight: "MRI is gold standard for osteomyelitis: 90% sensitive, 80% specific. Defines bone marrow involvement, abscess, soft tissue extent - guides surgical debridement."
-              },
-              {
-                text: "Bone biopsy for culture before starting antibiotics",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 20,
-                feedback: "Bone biopsy is gold standard for pathogen identification but delays treatment. Given known MRSA and severe infection, start empiric therapy while arranging MRI.",
-                insight: "Bone biopsy timing: ideally before antibiotics but not at expense of treatment delay in severe infection. Can be done with surgical debridement if planned."
-              },
-              {
-                text: "MRI foot to assess bone marrow involvement and soft tissue extent; start IV vancomycin",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Perfect approach! MRI defines surgical need while antibiotics address acute infection. MRI changes treatment in 30% of cases.",
-                insight: "Diabetic foot osteomyelitis workup: MRI best imaging (detects edema before X-ray changes), start antibiotics (don't delay for MRI), plan 6-week minimum treatment."
-              }
-            ]
-          },
-          {
-            id: "jc5",
-            category: "treatment",
-            title: "Surgical Debridement Planning",
-            situation: "MRI shows extensive bone involvement requiring surgical debridement. Surgery scheduled for tomorrow morning. James currently on vancomycin started 48 hours ago.",
-            labValues: "Vancomycin trough: 16.8 mg/L. Creatinine stable at 1.8 mg/dL. Blood glucose 220 mg/dL.",
-            question: "How should you manage antibiotics perioperatively?",
-            choices: [
-              {
-                text: "Continue vancomycin through surgery; ensure dose given 1-2 hours pre-op for adequate tissue levels",
-                outcome: "optimal",
-                healthImpact: 5,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent! Continuing vancomycin ensures therapeutic levels during surgery. Timing pre-op dose critical for tissue penetration during debridement.",
-                insight: "Vancomycin timing: infuse over 1-2 hours, complete within 1 hour before incision. Maintains bactericidal levels during surgery, reducing residual infection."
-              },
-              {
-                text: "Hold vancomycin morning of surgery - give standard surgical prophylaxis (cefazolin) instead",
-                outcome: "poor",
-                healthImpact: -15,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Switching to cefazolin is dangerous - MRSA is resistant to all beta-lactams. This leaves patient without MRSA coverage during critical surgical window.",
-                insight: "Surgical prophylaxis must cover known pathogens. With confirmed MRSA, vancomycin must continue. Cefazolin provides no MRSA coverage."
-              },
-              {
-                text: "Hold all antibiotics 24 hours before surgery to get accurate bone cultures",
-                outcome: "poor",
-                healthImpact: -20,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "CRITICAL ERROR! Stopping antibiotics risks sepsis progression in severe infection. Bone cultures can be obtained despite antibiotics - growth still occurs in 70%.",
-                insight: "Don't delay/stop antibiotics for cultures in severe infection. MRSA already confirmed. Bone cultures at surgery can identify co-pathogens despite antibiotic exposure."
-              }
-            ]
-          },
-          {
-            id: "jc6",
-            category: "treatment",
-            title: "Post-Surgical Antibiotic Duration",
-            situation: "Post-op day 5. Successful debridement with 60% bone removal. Wound VAC placed. Pathology confirms osteomyelitis. Bone culture: MRSA (matches previous susceptibilities).",
-            labValues: "Post-op CRP trending down: 145→78→45 mg/L. Vancomycin troughs therapeutic. Wound healing well.",
-            question: "What is the appropriate total antibiotic duration?",
-            choices: [
-              {
-                text: "2 weeks total - adequate for soft tissue infection",
-                outcome: "poor",
-                healthImpact: -15,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Far too short! Osteomyelitis requires prolonged therapy. 2 weeks treats only soft tissue - bone infection needs 4-6 weeks minimum. Relapse rate >50% with short courses.",
-                insight: "Osteomyelitis treatment duration: 6 weeks minimum after debridement. Underdosing/short duration is leading cause of relapse and chronic osteomyelitis."
-              },
-              {
-                text: "4 weeks - standard for bone infections",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "4 weeks is minimum, but 6 weeks is preferred for MRSA osteomyelitis, especially with significant bone involvement requiring debridement.",
-                insight: "MRSA osteomyelitis duration: 4-6 weeks post-debridement if all infected bone removed, up to 12 weeks if residual infection or no surgery. 6 weeks reduces relapse."
-              },
-              {
-                text: "6 weeks IV therapy; consider infectious disease consultation for possible oral suppression thereafter",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent evidence-based approach! 6 weeks is optimal for MRSA osteomyelitis post-debridement. ID consultation can guide potential suppressive therapy if needed.",
-                insight: "MRSA diabetic foot osteomyelitis: 6 weeks IV vancomycin post-adequate debridement. Consider oral suppression (TMP-SMX, doxycycline) if residual infected bone present."
-              }
-            ]
-          }
-        ]
-      },
-      {
-        id: 3,
-        name: "Emily Rodriguez",
-        age: 34,
-        room: "415",
-        admission: "Pneumonia",
-        baseHealth: 75,
-        mrsaStatus: "CA-MRSA Suspected",
-        riskLevel: "moderate",
-        scenarios: [
-          {
-            id: "er1",
-            category: "identification",
-            title: "Community-Acquired MRSA Recognition",
-            situation: "Emily, previously healthy, presents with severe pneumonia. Recent flu-like illness. Now has fever 39.2°C, hemoptysis, severe dyspnea. CXR shows bilateral cavitary lesions.",
-            labValues: "WBC 18.5 × 10⁹/L, left shift. CXR: Bilateral cavitary infiltrates. No recent hospitalization. Blood cultures pending.",
-            question: "What pathogen should you strongly suspect?",
-            choices: [
-              {
-                text: "Community-acquired pneumonia pathogens (Streptococcus pneumoniae, Haemophilus) - start ceftriaxone + azithromycin",
-                outcome: "poor",
-                healthImpact: -20,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Cavitary lesions + hemoptysis + post-influenza = CA-MRSA necrotizing pneumonia until proven otherwise. Standard CAP treatment lacks MRSA coverage.",
-                insight: "CA-MRSA pneumonia: typically post-influenza, rapid progression, cavitation, hemoptysis, high mortality (>50% without appropriate antibiotics). PVL toxin causes necrosis."
-              },
-              {
-                text: "Hospital-acquired MRSA - but she has no healthcare exposure, so unlikely",
-                outcome: "suboptimal",
-                healthImpact: -10,
-                wardImpact: 0,
-                xp: 20,
-                feedback: "CA-MRSA affects healthy young adults without healthcare exposure. Different strain (USA300) with PVL toxin. Clinical presentation (cavitary pneumonia) is classic.",
-                insight: "CA-MRSA vs HA-MRSA: CA-MRSA affects community-dwelling individuals, often post-viral illness, carries PVL toxin causing necrotizing infections. Different antibiotic susceptibilities."
-              },
-              {
-                text: "Community-acquired MRSA (PVL toxin producing) - add vancomycin + linezolid/clindamycin to suppress toxin",
-                outcome: "optimal",
-                healthImpact: 15,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent recognition! CA-MRSA necrotizing pneumonia is life-threatening. Dual therapy: vancomycin (bactericidal) + linezolid/clindamycin (suppresses PVL toxin production).",
-                insight: "CA-MRSA pneumonia treatment: Vancomycin PLUS protein synthesis inhibitor (linezolid/clindamycin) to suppress PVL toxin production. Dual therapy improves survival by 30%."
-              }
-            ]
-          },
-          {
-            id: "er2",
-            category: "treatment",
-            title: "Toxin Suppression Therapy",
-            situation: "Blood cultures confirm MRSA. Susceptibilities: Vancomycin (S), Linezolid (S), Clindamycin (S). Emily on vancomycin alone, but still deteriorating with increasing oxygen needs.",
-            labValues: "Lactate 3.2 mmol/L. Requiring 6L O₂. Blood cultures: MRSA at 18 hours (both bottles).",
-            question: "What change should you make to antibiotic therapy?",
-            choices: [
-              {
-                text: "Add clindamycin to vancomycin for toxin suppression",
-                outcome: "optimal",
-                healthImpact: 15,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Critical addition! Clindamycin inhibits protein synthesis, reducing PVL toxin production. Combined with bactericidal vancomycin, significantly improves survival in necrotizing pneumonia.",
-                insight: "PVL toxin causes pneumonia severity. Protein synthesis inhibitors (clindamycin 600mg IV Q8H or linezolid) reduce toxin production. Add to vancomycin in severe CA-MRSA pneumonia."
-              },
-              {
-                text: "Switch from vancomycin to linezolid monotherapy",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "Linezolid provides toxin suppression BUT switching loses vancomycin's rapid bactericidal activity. Combination therapy (both drugs) is superior for severe disease.",
-                insight: "Linezolid has anti-toxin effects but slower bactericidal activity than vancomycin. In severe CA-MRSA pneumonia, dual therapy combines rapid killing + toxin suppression."
-              },
-              {
-                text: "Increase vancomycin dose for higher trough levels",
-                outcome: "poor",
-                healthImpact: -10,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Higher vancomycin won't address the PVL toxin causing tissue necrosis. Need protein synthesis inhibitor to suppress toxin production, not just higher antibiotic levels.",
-                insight: "Toxin-mediated disease requires dual approach: Kill bacteria (vancomycin) AND suppress toxin production (clindamycin/linezolid). Increasing bactericidal agent alone insufficient."
-              }
-            ]
-          },
-          {
-            id: "er3",
-            category: "treatment",
-            title: "Source Control Decision",
-            situation: "Day 5 of therapy. Emily slightly improved but CT chest shows large empyema (8cm) with loculations. Thoracic surgery consulted.",
-            labValues: "Pleural fluid: pH 7.1, glucose 35 mg/dL, LDH 1850 U/L, Gram stain: Gram-positive cocci in clusters.",
-            question: "What is the appropriate source control?",
-            choices: [
-              {
-                text: "Continue antibiotics alone - empyema will resolve with appropriate antibiotics",
-                outcome: "poor",
-                healthImpact: -20,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "CRITICAL ERROR! Complicated empyema (pH <7.2, glucose <40, loculations) requires drainage. Antibiotics alone have <10% success rate. Undrained empyema leads to sepsis.",
-                insight: "Empyema stages: Simple (thin fluid) → Complicated (loculations, pH <7.2) → Organized (thick peel). Complicated/organized require drainage. Medical therapy alone fails in 90%."
-              },
-              {
-                text: "Chest tube drainage + intrapleural fibrinolytics (tPA/DNase) to break up loculations",
-                outcome: "optimal",
-                healthImpact: 15,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent! Complicated empyema needs drainage. tPA/DNase reduces need for surgery by 50% and improves drainage in loculated effusions. Standard of care for complex empyema.",
-                insight: "MIST2 trial showed tPA + DNase reduces pleural opacity by 30% vs placebo, reduces surgical referral. Give via chest tube: tPA 10mg + DNase 5mg BID × 3 days."
-              },
-              {
-                text: "Simple chest tube drainage only",
-                outcome: "suboptimal",
-                healthImpact: 5,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "Chest tube is necessary but loculations prevent adequate drainage. Fibrinolytics significantly improve outcomes in complicated empyema. Tube alone may fail requiring surgery.",
-                insight: "Loculated empyema: simple chest tube has 40-60% failure rate. Adding fibrinolytics (tPA/DNase) improves drainage, reduces surgery need from 40% to 15%."
-              }
-            ]
-          },
-          {
-            id: "er4",
-            category: "treatment",
-            title: "Antibiotic Transition Planning",
-            situation: "Day 12. Emily dramatically improved. Afebrile 4 days, chest tube removed, oxygen saturations normal. Wants to go home. On vancomycin + clindamycin.",
-            labValues: "WBC 8.2 × 10⁹/L. CRP: 145→45→12 mg/L. CXR: Residual infiltrate improving. Repeat cultures negative.",
-            question: "What is the appropriate antibiotic plan for discharge?",
-            choices: [
-              {
-                text: "Discharge with PICC line for 4 more weeks IV vancomycin + clindamycin",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: 0,
-                xp: 20,
-                feedback: "Overly aggressive. After 2 weeks IV with clinical improvement, can transition to oral therapy. Prolonged IV has PICC risks (infection, thrombosis) without added benefit.",
-                insight: "IV to PO switch criteria: Afebrile, improved clinically, tolerating oral, normal GI function. Extended IV doesn't improve cure rates but adds line-related complications (5-10%)."
-              },
-              {
-                text: "Discontinue antibiotics - 2 weeks adequate, clinically improved",
-                outcome: "poor",
-                healthImpact: -15,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Too short! MRSA necrotizing pneumonia needs 3-4 weeks total therapy. Early cessation leads to relapse rates >30%. Residual lung involvement needs longer treatment.",
-                insight: "CA-MRSA pneumonia duration: Minimum 3-4 weeks depending on severity. Necrotizing pneumonia/empyema needs minimum 3 weeks, often 4-6 weeks. Monitor CRP normalization."
-              },
-              {
-                text: "Transition to oral linezolid 600mg BID to complete 3-4 weeks total therapy; outpatient follow-up in 1 week",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 5,
-                xp: 50,
-                feedback: "Perfect! Clinical stability allows oral transition. Linezolid 100% bioavailable, excellent lung penetration. Total 3-4 weeks appropriate for necrotizing pneumonia. Early follow-up ensures success.",
-                insight: "Oral options for MRSA: Linezolid (excellent bioavailability, lung penetration), TMP-SMX, doxycycline (if susceptible). Linezolid preferred for severe pneumonia step-down. Monitor CBC (thrombocytopenia risk >2 weeks)."
-              }
-            ]
-          }
-        ]
-      },
-      {
-        id: 4,
-        name: "Robert Thompson",
-        age: 45,
-        room: "418",
-        admission: "IV Drug Use - Endocarditis",
-        baseHealth: 60,
-        mrsaStatus: "MRSA Bacteremia",
-        riskLevel: "high",
-        scenarios: [
-          {
-            id: "rt1",
-            category: "identification",
-            title: "Endocarditis Diagnosis",
-            situation: "Robert, known IV drug user, presents with 2 weeks of fevers, back pain, new heart murmur. Blood cultures from ED growing Gram-positive cocci in clusters at 12 hours (4/4 bottles).",
-            labValues: "Temp 38.9°C. New 3/6 systolic murmur. Back tenderness at L3-L4. Blood cultures: GPC in clusters, preliminary MRSA.",
-            question: "What is the most critical next diagnostic step?",
-            choices: [
-              {
-                text: "Repeat blood cultures in 48 hours to confirm bacteremia",
-                outcome: "poor",
-                healthImpact: -10,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Delay is dangerous! 4/4 positive cultures = true bacteremia (not contamination). With new murmur + persistent fever, endocarditis is likely. Need immediate echocardiogram.",
-                insight: "Duke criteria for endocarditis: Positive blood cultures + new murmur + risk factor (IVDU) = probable endocarditis. Transthoracic echo has 70% sensitivity, TEE 95% sensitivity."
-              },
-              {
-                text: "Urgent transthoracic echocardiogram; if negative, proceed to TEE given high pretest probability",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent! TTE first (70% sensitive), but IVDU patients often have right-sided endocarditis better seen on TEE. High clinical suspicion warrants TEE if TTE negative.",
-                insight: "IVDU + MRSA bacteremia: Tricuspid valve endocarditis in 70% of cases. TTE can miss tricuspid vegetations - low threshold for TEE. Early diagnosis changes management and improves outcomes."
-              },
-              {
-                text: "Start antibiotics and observe - echocardiogram only if fever persists after 3 days",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 20,
-                feedback: "Starting antibiotics is correct, but delaying echo risks missing complications (valve rupture, abscess). Echo should be done within 24 hours in suspected endocarditis.",
-                insight: "Timing matters: Echo within 24 hours identifies vegetations, guides treatment duration (4-6 weeks). Delays can miss acute complications requiring surgery."
-              }
-            ]
-          },
-          {
-            id: "rt2",
-            category: "identification",
-            title: "Metastatic Infection Search",
-            situation: "TEE confirms 2.5cm tricuspid vegetation. Robert complains of severe back pain (8/10) at L3-L4 level with tenderness. Neuro exam shows reduced sensation in L4 dermatome.",
-            labValues: "TEE: Large tricuspid vegetation (2.5cm). Moderate TR. Neurology concerned about epidural abscess vs vertebral osteomyelitis.",
-            question: "What imaging is urgently needed?",
-            choices: [
-              {
-                text: "Lumbar spine X-ray to assess for vertebral osteomyelitis",
-                outcome: "poor",
-                healthImpact: -15,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "X-rays take 2-4 weeks to show bone changes. With neurologic symptoms (sensory loss), need immediate MRI to rule out epidural abscess - a surgical emergency!",
-                insight: "Epidural abscess symptoms: Back pain + fever + neurologic deficit = triad (classic in only 10%). MRI spine is gold standard - 90% sensitive. Delay risks paralysis."
-              },
-              {
-                text: "Urgent MRI spine (within 6 hours) to evaluate for epidural abscess - potential neurosurgical emergency",
-                outcome: "optimal",
-                healthImpact: 15,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "CRITICAL ACTION! Sensory changes with MRSA bacteremia = epidural abscess until proven otherwise. MRI within hours essential - delays risk permanent paralysis.",
-                insight: "MRSA bacteremia + back pain: 5-15% have spinal epidural abscess or osteomyelitis. Neurologic symptoms require URGENT MRI (<6 hours). Surgery within 24 hours if abscess compressing cord."
-              },
-              {
-                text: "CT spine with contrast - faster than MRI",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "CT less sensitive than MRI for epidural abscess (60% vs 90% sensitivity). With neurologic symptoms, MRI is standard of care despite longer scan time.",
-                insight: "MRI superiority: Better soft tissue resolution, detects early osteomyelitis, shows cord compression. CT acceptable if MRI contraindicated (pacemaker) or unavailable."
-              }
-            ]
-          },
-          {
-            id: "rt3",
-            category: "treatment",
-            title: "Complicated Endocarditis Management",
-            situation: "MRI shows L3-L4 discitis-osteomyelitis with small epidural abscess (no cord compression). Large tricuspid vegetation. Cardiac surgery evaluating for valve surgery vs medical management.",
-            labValues: "MRSA susceptible to vancomycin (MIC 1.0), daptomycin, linezolid. Creatinine 1.2 mg/dL.",
-            question: "What is the optimal antibiotic choice for this complicated MRSA endocarditis with metastatic infection?",
-            choices: [
-              {
-                text: "High-dose vancomycin targeting trough 15-20 mg/L",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "Vancomycin is acceptable but daptomycin superior for MRSA endocarditis. Studies show faster bacteremia clearance, fewer treatment failures with daptomycin vs vancomycin.",
-                insight: "Vancomycin MIC creep: MIC ≥1.5 mg/L associated with treatment failure in endocarditis. Even with MIC 1.0, daptomycin preferred for serious MRSA infections."
-              },
-              {
-                text: "Daptomycin 8-10 mg/kg/day (high-dose for endocarditis) - superior to vancomycin for MRSA endocarditis",
-                outcome: "optimal",
-                healthImpact: 15,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent choice! High-dose daptomycin (8-10 mg/kg) is superior to vancomycin for MRSA endocarditis - faster sterilization, better cure rates. Monitor CPK weekly.",
-                insight: "Daptomycin for MRSA endocarditis: 8-10 mg/kg/day (higher than soft tissue dose of 6 mg/kg). Rapidly bactericidal, excellent bone penetration. Monitor CPK (rhabdomyolysis risk <1%)."
-              },
-              {
-                text: "Linezolid - good bone penetration for vertebral infection",
-                outcome: "poor",
-                healthImpact: -10,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "Linezolid is bacteriostatic, not recommended for endocarditis. Bactericidal antibiotics (vancomycin, daptomycin) required for endocardial infections. Linezolid has higher failure rates.",
-                insight: "Endocarditis requires bactericidal therapy. Linezolid is bacteriostatic vs MRSA. Despite good bioavailability, inferior outcomes in endocarditis. Reserve for less severe infections."
-              }
-            ]
-          },
-          {
-            id: "rt4",
-            category: "treatment",
-            title: "Follow-up Blood Cultures",
-            situation: "Robert on daptomycin 600mg (10 mg/kg) daily for 3 days. Still febrile. Cardiothoracic surgery recommends continued medical management unless persistent bacteremia.",
-            labValues: "Day 3: Temp 38.6°C. Follow-up blood cultures ordered.",
-            question: "When should follow-up blood cultures be obtained and what do they guide?",
-            choices: [
-              {
-                text: "Daily blood cultures until afebrile",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: -5,
-                xp: 20,
-                feedback: "Daily cultures are excessive. Standard is cultures every 48-72 hours until clearance documented. Fever can persist days despite sterilization due to inflammatory response.",
-                insight: "Blood culture frequency in endocarditis: Every 48-72 hours until negative. Persistence beyond 5-7 days indicates treatment failure, possible surgery need."
-              },
-              {
-                text: "Repeat cultures every 2-3 days until clearance; persistent bacteremia >5-7 days suggests need for surgery",
-                outcome: "optimal",
-                healthImpact: 5,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Perfect protocol! Serial cultures document clearance (usually 3-5 days). Persistent bacteremia >7 days despite appropriate antibiotics indicates surgical intervention likely needed.",
-                insight: "MRSA bacteremia clearance: Typically 3-5 days with effective therapy. Persistence >7 days: Check for undrainable focus (abscess), consider valve surgery, ensure adequate daptomycin levels."
-              },
-              {
-                text: "No repeat cultures needed if patient improving clinically",
-                outcome: "poor",
-                healthImpact: -15,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "CRITICAL ERROR! Documented clearance essential in endocarditis. Guides treatment duration (minimum 4-6 weeks from first negative culture). Persistent bacteremia changes management.",
-                insight: "Endocarditis treatment duration: 4-6 weeks from first NEGATIVE blood culture. Without documenting clearance, can't determine appropriate duration. May undertreate or overtreat."
-              }
-            ]
-          },
-          {
-            id: "rt5",
-            category: "treatment",
-            title: "Treatment Duration Determination",
-            situation: "Day 7: Blood cultures negative × 48 hours. Vegetation size unchanged on repeat echo. Back pain improving. Patient stable, wants to know when he can go home.",
-            labValues: "Blood cultures negative (drawn day 5 and 7). CRP trending down. Repeat TTE: Vegetation stable at 2.5cm.",
-            question: "What is the appropriate total treatment duration?",
-            choices: [
-              {
-                text: "4 weeks from first negative blood culture - standard for uncomplicated right-sided endocarditis",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "This IS complicated endocarditis (large vegetation + vertebral osteomyelitis). Requires minimum 6 weeks, possibly 8-12 weeks given bone involvement.",
-                insight: "Right-sided MRSA endocarditis: Uncomplicated (small vegetation, rapid clearance) = 4 weeks. Complicated (large vegetation, metastatic infection) = 6+ weeks from first negative culture."
-              },
-              {
-                text: "6 weeks minimum given vertebral osteomyelitis; possibly longer (8-12 weeks) for bone infection",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 0,
-                xp: 50,
-                feedback: "Excellent! Vertebral osteomyelitis typically needs 6-12 weeks. Combined with endocarditis, minimum 6 weeks IV therapy. Consider prolonged suppression if residual bone involvement.",
-                insight: "Combined endocarditis + osteomyelitis: Treat to the longer duration. Vertebral osteomyelitis needs 6-12 weeks. Start counting from first NEGATIVE blood culture. PICC line for outpatient therapy."
-              },
-              {
-                text: "2 weeks IV followed by 4 weeks oral therapy for convenience",
-                outcome: "poor",
-                healthImpact: -20,
-                wardImpact: 0,
-                xp: 10,
-                feedback: "CRITICAL ERROR! Endocarditis requires IV therapy - oral antibiotics have unacceptably high failure rates. Prosthetic valve or complicated endocarditis needs full IV course.",
-                insight: "Endocarditis treatment must be IV for entire duration. Oral antibiotics don't achieve adequate cardiac tissue concentrations. Switching to oral results in 30-50% relapse rate."
-              }
-            ]
-          }
-        ]
-      },
-      {
-        id: 5,
-        name: "Margaret Foster",
-        age: 78,
-        room: "420",
-        admission: "UTI from Nursing Home",
-        baseHealth: 70,
-        mrsaStatus: "Colonized - No Active Infection",
-        riskLevel: "moderate",
-        scenarios: [
-          {
-            id: "mf1",
-            category: "identification",
-            title: "MRSA Colonization vs Infection",
-            situation: "Margaret admitted from nursing home for UTI (E. coli, not MRSA). Admission nasal swab: MRSA positive. No wounds, no respiratory symptoms. Alert and oriented.",
-            labValues: "Urine culture: E. coli (sensitive to ceftriaxone). Nasal swab: MRSA. Chest X-ray clear. No skin breakdown.",
-            question: "What is the appropriate management of the MRSA finding?",
-            choices: [
-              {
-                text: "Start vancomycin for MRSA colonization",
-                outcome: "poor",
-                healthImpact: -5,
-                wardImpact: -10,
-                xp: 10,
-                feedback: "CRITICAL STEWARDSHIP ERROR! Colonization is NOT infection. Treating colonization promotes resistance, wastes resources, causes adverse effects. No benefit to patient.",
-                insight: "MRSA colonization: 30% of nursing home residents. Presence without infection requires NO antibiotics. Treatment causes resistance without improving outcomes. Major stewardship issue."
-              },
-              {
-                text: "No antibiotics for MRSA; treat the UTI with ceftriaxone; implement contact precautions",
-                outcome: "optimal",
-                healthImpact: 5,
-                wardImpact: 10,
-                xp: 50,
-                feedback: "Perfect! Colonization needs contact precautions (prevent transmission) but NO antibiotics. Treat the actual infection (E. coli UTI). This is fundamental antimicrobial stewardship.",
-                insight: "Colonization vs Infection distinction is critical. Colonization = organism present without tissue invasion/symptoms. Contact precautions prevent spread but no antibiotics unless infection develops."
-              },
-              {
-                text: "No isolation needed - MRSA colonization is not contagious",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: -10,
-                xp: 20,
-                feedback: "Colonized patients CAN transmit MRSA to others via skin shedding and environmental contamination. Contact precautions reduce transmission by 80%.",
-                insight: "Colonized patients shed MRSA onto skin, clothing, environment. Healthcare workers' hands become contaminated. Contact precautions + hand hygiene prevent transmission to vulnerable patients."
-              }
-            ]
-          },
-          {
-            id: "mf2",
-            category: "prevention",
-            title: "Catheter-Associated Infection Prevention",
-            situation: "Margaret improving on ceftriaxone. She has a Foley catheter from the nursing home (placed 2 weeks ago). Nursing asks if it should be changed or removed.",
-            labValues: "Day 3: UTI improving. Afebrile. Urine clear. Foley in place × 2 weeks.",
-            question: "What is the best catheter management approach?",
-            choices: [
-              {
-                text: "Remove catheter - no longer needed, significantly reduces infection risk",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 10,
-                xp: 50,
-                feedback: "Excellent! Every day with catheter increases infection risk by 5%. If not strictly indicated, remove it. Best prevention strategy. Margaret can use bedside commode.",
-                insight: "Catheter-associated UTI prevention: Remove unnecessary catheters immediately. CAUTI rate: 5% per day. Each additional day increases risk. Daily necessity assessment reduces CAUTI by 50%."
-              },
-              {
-                text: "Keep catheter but change to new sterile one",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: -5,
-                xp: 20,
-                feedback: "Changing catheters doesn't reduce infection risk and adds unnecessary procedure. If catheter not needed, remove it. If needed, don't change unless obstructed/malfunctioning.",
-                insight: "Routine catheter changes don't prevent CAUTI. Evidence shows no benefit to scheduled changes. Only change if malfunctioning, obstructed, or infected. Best strategy: Remove when possible."
-              },
-              {
-                text: "Keep catheter in place - she came from nursing home with it",
-                outcome: "poor",
-                healthImpact: -5,
-                wardImpact: -10,
-                xp: 10,
-                feedback: "Wrong approach! Re-assess daily necessity. Nursing home placement doesn't mean hospital continuation required. Unnecessary catheters are leading cause of healthcare-associated infections.",
-                insight: "30-50% of hospitalized patients have unnecessary catheters. Daily assessment and prompt removal when not needed is key quality measure. 'Nurse-driven' removal protocols reduce CAUTI rates 40%."
-              }
-            ]
-          },
-          {
-            id: "mf3",
-            category: "prevention",
-            title: "Decolonization Consideration",
-            situation: "Margaret ready for discharge back to nursing home. Administrator asks if MRSA decolonization should be attempted before return to prevent outbreaks.",
-            labValues: "Day 7: UTI resolved. Stable. MRSA colonization status unchanged. No active infection.",
-            question: "Should routine MRSA decolonization be performed?",
-            choices: [
-              {
-                text: "No - routine decolonization for nursing home residents not recommended; focus on infection prevention measures",
-                outcome: "optimal",
-                healthImpact: 5,
-                wardImpact: 5,
-                xp: 50,
-                feedback: "Correct! Decolonization in nursing homes has limited evidence. High recolonization rates (>50% at 3 months). Better to focus on hand hygiene, wound care, appropriate antibiotic use.",
-                insight: "Nursing home decolonization: Limited efficacy due to high recolonization rates. Better ROI from: Hand hygiene, environmental cleaning, limiting antibiotic overuse. Selective decolonization for outbreaks."
-              },
-              {
-                text: "Yes - 5-day mupirocin + CHG protocol to protect nursing home residents",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: 0,
-                xp: 25,
-                feedback: "Well-intentioned but limited benefit. Nursing home recolonization rates >50% at 3 months. Decolonization more appropriate for surgical patients or during active outbreaks.",
-                insight: "Decolonization efficacy varies by setting: Surgical patients (high benefit), ICU (moderate benefit), Long-term care (limited benefit due to rapid recolonization). Reserve for specific indications."
-              },
-              {
-                text: "Yes - long-term oral antibiotics to maintain MRSA suppression",
-                outcome: "poor",
-                healthImpact: -10,
-                wardImpact: -15,
-                xp: 10,
-                feedback: "CRITICAL ERROR! Chronic antibiotic suppression for colonization promotes resistance, causes adverse effects, provides no benefit. Never use systemic antibiotics for MRSA colonization alone.",
-                insight: "Chronic antibiotic suppression: Promotes resistance, disrupts microbiome, causes C. difficile, drug toxicity. NO role for suppressing MRSA colonization without active infection."
-              }
-            ]
-          },
-          {
-            id: "mf4",
-            category: "identification",
-            title: "New Fever Investigation",
-            situation: "Day 8: Margaret develops fever 38.3°C. Small area of erythema (3cm) around IV site in right forearm. IV placed 3 days ago. No purulent drainage. Mentally alert.",
-            labValues: "Temp 38.3°C. WBC 11.2 × 10⁹/L. IV site: 3cm erythema, no pus. Known MRSA colonization.",
-            question: "How should you investigate this new fever?",
-            choices: [
-              {
-                text: "Start vancomycin immediately - she's MRSA colonized and likely has MRSA IV site infection",
-                outcome: "poor",
-                healthImpact: -10,
-                wardImpact: -10,
-                xp: 10,
-                feedback: "Premature! Mild erythema alone doesn't mandate antibiotics. Remove IV, apply warm compresses, observe. Colonization doesn't mean every fever is MRSA infection. Evaluate before treating.",
-                insight: "Colonization bias: Don't assume MRSA colonization means MRSA infection. Evaluate systematically (exam, labs, cultures). Many MRSA carriers have non-MRSA infections. Avoid unnecessary antibiotics."
-              },
-              {
-                text: "Remove IV catheter, obtain blood cultures, observe without antibiotics; reassess in 24 hours",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 10,
-                xp: 50,
-                feedback: "Excellent stewardship! Remove source (IV), culture before antibiotics, observe. Superficial phlebitis often resolves without antibiotics. Avoid overtreatment of colonized patients.",
-                insight: "Superficial thrombophlebitis: 50% resolve with catheter removal alone. Start antibiotics only if: Purulent drainage, spreading erythema, sepsis signs, positive blood cultures. Source control first!"
-              },
-              {
-                text: "Obtain blood cultures and start empiric ceftriaxone (usual hospital pathogens)",
-                outcome: "suboptimal",
-                healthImpact: 0,
-                wardImpact: -5,
-                xp: 20,
-                feedback: "Better than jumping to vancomycin, but still premature. Remove IV first, observe. Mild phlebitis without systemic symptoms often needs only source removal, not antibiotics.",
-                insight: "Antibiotic stewardship: Not every fever needs antibiotics. Source control (remove catheter) + observation often sufficient for localized, non-severe infections. Reserve antibiotics for progressive/systemic infections."
-              }
-            ]
-          },
-          {
-            id: "mf5",
-            category: "treatment",
-            title: "Antibiotic De-escalation",
-            situation: "Blood cultures at 48 hours show no growth. IV removed, erythema resolving. However, vancomycin was started empirically by night team before cultures drawn. Margaret afebrile 24 hours.",
-            labValues: "Blood cultures: No growth at 48 hours. Temp normal × 24h. IV site erythema resolved. Vancomycin trough: 18 mg/L.",
-            question: "What should be done with the vancomycin?",
-            choices: [
-              {
-                text: "Complete 7-day course - she's MRSA colonized and was empirically started",
-                outcome: "poor",
-                healthImpact: -5,
-                wardImpact: -10,
-                xp: 10,
-                feedback: "Wrong! Continue unnecessary antibiotics promotes resistance and side effects. Negative cultures + clinical resolution = stop antibiotics. No infection documented.",
-                insight: "De-escalation principle: If cultures negative and patient improved, STOP antibiotics. Don't complete arbitrary courses for unproven infections. Major stewardship opportunity."
-              },
-              {
-                text: "Discontinue vancomycin - negative cultures, infection not substantiated, clinical resolution",
-                outcome: "optimal",
-                healthImpact: 10,
-                wardImpact: 15,
-                xp: 50,
-                feedback: "EXCELLENT stewardship! No proven infection (negative cultures, resolved symptoms). Stopping prevents unnecessary antibiotic exposure, resistance, toxicity. Textbook de-escalation.",
-                insight: "Antimicrobial stewardship golden rule: Stop antibiotics when infection NOT confirmed. De-escalation reduces C. diff by 30%, resistance, costs. Key quality metric in hospital stewardship programs."
-              },
-              {
-                text: "Switch to oral antibiotics for easier administration to complete course",
-                outcome: "suboptimal",
-                healthImpact: -5,
-                wardImpact: -5,
-                xp: 15,
-                feedback: "Still treating an unproven infection. Switching routes doesn't address the core issue - she doesn't need antibiotics at all. Negative cultures + resolution = stop all antimicrobials.",
-                insight: "Route switching doesn't fix inappropriate treatment. IV to PO appropriate for PROVEN infections when stable. For unproven infections, stop all antibiotics regardless of route."
-              }
-            ]
           }
         ]
       }
     ];
 
     // Initialize patient states
-    patients.forEach(p => {
+    for (let i = 0; i < patients.length; i++) {
+      const p = patients[i];
       gameState.patientStates[p.id] = {
         health: p.baseHealth,
         scenarioIndex: 0,
         completed: false
       };
-    });
+    }
 
     // Initialize SDK
     async function initializeApp() {
       if (window.elementSdk) {
         await window.elementSdk.init({
-          defaultConfig,
-          onConfigChange: async (config) => {
+          defaultConfig: defaultConfig,
+          onConfigChange: async function(config) {
             document.getElementById('module-title').textContent = config.module_title || defaultConfig.module_title;
           },
-          mapToCapabilities: (config) => ({
-            recolorables: [
-              {
-                get: () => config.background_color || defaultConfig.background_color,
-                set: (value) => window.elementSdk.setConfig({ background_color: value })
-              },
-              {
-                get: () => config.primary_color || defaultConfig.primary_color,
-                set: (value) => window.elementSdk.setConfig({ primary_color: value })
-              },
-              {
-                get: () => config.text_color || defaultConfig.text_color,
-                set: (value) => window.elementSdk.setConfig({ text_color: value })
-              },
-              {
-                get: () => config.accent_color || defaultConfig.accent_color,
-                set: (value) => window.elementSdk.setConfig({ accent_color: value })
-              }
-            ],
-            borderables: [],
-            fontEditable: undefined,
-            fontSizeable: undefined
-          }),
-          mapToEditPanelValues: (config) => new Map([
-            ["module_title", config.module_title || defaultConfig.module_title]
-          ])
+          mapToCapabilities: function(config) {
+            return {
+              recolorables: [
+                {
+                  get: function() { return config.background_color || defaultConfig.background_color; },
+                  set: function(value) { window.elementSdk.setConfig({ background_color: value }); }
+                },
+                {
+                  get: function() { return config.primary_color || defaultConfig.primary_color; },
+                  set: function(value) { window.elementSdk.setConfig({ primary_color: value }); }
+                },
+                {
+                  get: function() { return config.text_color || defaultConfig.text_color; },
+                  set: function(value) { window.elementSdk.setConfig({ text_color: value }); }
+                },
+                {
+                  get: function() { return config.accent_color || defaultConfig.accent_color; },
+                  set: function(value) { window.elementSdk.setConfig({ accent_color: value }); }
+                }
+              ],
+              borderables: [],
+              fontEditable: undefined,
+              fontSizeable: undefined
+            };
+          },
+          mapToEditPanelValues: function(config) {
+            return new Map([
+              ["module_title", config.module_title || defaultConfig.module_title]
+            ]);
+          }
         });
       }
       
@@ -1709,37 +787,49 @@
 
     function renderPatientList() {
       const container = document.getElementById('patient-list');
-      container.innerHTML = patients.map(patient => {
+      let html = '';
+      
+      for (let i = 0; i < patients.length; i++) {
+        const patient = patients[i];
         const state = gameState.patientStates[patient.id];
         const totalScenarios = patient.scenarios.length;
         const completed = state.scenarioIndex >= totalScenarios;
         
-        const riskColors = {
-          low: 'border-emerald-400 bg-emerald-900/30',
-          moderate: 'border-amber-400 bg-amber-900/30',
-          high: 'border-red-400 bg-red-900/30'
+        const riskColorMap = {
+          'low': 'border-emerald-400 bg-emerald-900/30',
+          'moderate': 'border-amber-400 bg-amber-900/30',
+          'high': 'border-red-400 bg-red-900/30'
         };
+        const riskColor = riskColorMap[patient.riskLevel];
         
         const isActive = gameState.currentPatientId === patient.id;
+        const activeClass = isActive ? 'active' : '';
         
-        return `
-          <div onclick="selectPatient(${patient.id})" 
-               class="patient-card p-3 rounded-xl border-2 ${riskColors[patient.riskLevel]} ${isActive ? 'active' : ''} mb-2 hover:shadow-lg transition-all">
-            <div class="flex items-start justify-between mb-2">
-              <div>
-                <h3 class="font-bold text-white text-sm">${patient.name}</h3>
-                <p class="text-xs text-slate-400">Age ${patient.age} • Room ${patient.room}</p>
-              </div>
-              ${completed ? '<span class="text-emerald-400 text-xl">✓</span>' : ''}
-            </div>
-            <p class="text-xs text-slate-300 mb-2">${patient.admission}</p>
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold ${patient.riskLevel === 'high' ? 'text-red-400' : patient.riskLevel === 'moderate' ? 'text-amber-400' : 'text-emerald-400'}">${patient.mrsaStatus}</span>
-              <span class="text-xs text-slate-400 font-semibold">${state.scenarioIndex}/${totalScenarios}</span>
-            </div>
-          </div>
-        `;
-      }).join('');
+        const statusColorMap = {
+          'high': 'text-red-400',
+          'moderate': 'text-amber-400',
+          'low': 'text-emerald-400'
+        };
+        const statusColor = statusColorMap[patient.riskLevel];
+        
+        html += '<div onclick="selectPatient(' + patient.id + ')" ' +
+          'class="patient-card p-3 rounded-xl border-2 ' + riskColor + ' ' + activeClass + ' mb-2 hover:shadow-lg transition-all">' +
+          '<div class="flex items-start justify-between mb-2">' +
+          '<div>' +
+          '<h3 class="font-bold text-white text-sm">' + patient.name + '</h3>' +
+          '<p class="text-xs text-slate-400">Age ' + patient.age + ' • Room ' + patient.room + '</p>' +
+          '</div>' +
+          (completed ? '<span class="text-emerald-400 text-xl">✓</span>' : '') +
+          '</div>' +
+          '<p class="text-xs text-slate-300 mb-2">' + patient.admission + '</p>' +
+          '<div class="flex items-center justify-between">' +
+          '<span class="text-xs font-bold ' + statusColor + '">' + patient.mrsaStatus + '</span>' +
+          '<span class="text-xs text-slate-400 font-semibold">' + state.scenarioIndex + '/' + totalScenarios + '</span>' +
+          '</div>' +
+          '</div>';
+      }
+      
+      container.innerHTML = html;
     }
 
     function selectPatient(patientId) {
@@ -1748,28 +838,38 @@
       renderPatientList();
       renderScenario();
       
-      const patient = patients.find(p => p.id === patientId);
+      let patient = null;
+      for (let i = 0; i < patients.length; i++) {
+        if (patients[i].id === patientId) {
+          patient = patients[i];
+          break;
+        }
+      }
       updateVitalsDisplay(patient);
       updatePatientStatusDisplay(patient);
     }
 
     function renderScenario() {
-      const patient = patients.find(p => p.id === gameState.currentPatientId);
+      let patient = null;
+      for (let i = 0; i < patients.length; i++) {
+        if (patients[i].id === gameState.currentPatientId) {
+          patient = patients[i];
+          break;
+        }
+      }
       if (!patient) return;
       
       const state = gameState.patientStates[patient.id];
       const container = document.getElementById('scenario-container');
       
-      // Update patient header
       document.getElementById('patient-name-display').textContent = patient.name;
-      document.getElementById('patient-details').textContent = `Age ${patient.age} • Room ${patient.room} • ${patient.admission}`;
+      document.getElementById('patient-details').textContent = 'Age ' + patient.age + ' • Room ' + patient.room + ' • ' + patient.admission;
       document.getElementById('patient-status-badge').textContent = patient.mrsaStatus;
-      document.getElementById('health-percent').textContent = `${state.health}%`;
-      document.getElementById('health-bar').style.width = `${state.health}%`;
-      document.getElementById('scenario-progress').textContent = `${state.scenarioIndex + 1} / ${patient.scenarios.length}`;
-      document.getElementById('ward-safety-header').textContent = `${gameState.wardSafety}%`;
+      document.getElementById('health-percent').textContent = state.health + '%';
+      document.getElementById('health-bar').style.width = state.health + '%';
+      document.getElementById('scenario-progress').textContent = (state.scenarioIndex + 1) + ' / ' + patient.scenarios.length;
+      document.getElementById('ward-safety-header').textContent = gameState.wardSafety + '%';
       
-      // Color health bar
       const healthBar = document.getElementById('health-bar');
       if (state.health > 70) {
         healthBar.className = 'health-bar-fill h-full bg-gradient-to-r from-green-400 to-blue-500 rounded-full';
@@ -1780,85 +880,87 @@
       }
       
       if (state.scenarioIndex >= patient.scenarios.length) {
-        container.innerHTML = `
-          <div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-2xl border-2 border-yellow-400 p-12 text-center relative overflow-hidden">
-            <div class="absolute inset-0 bg-black opacity-20"></div>
-            <div class="relative z-10">
-              <div class="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-2xl">
-                <svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-              </div>
-              <h2 class="text-2xl font-black text-white mb-2 drop-shadow-lg">Patient Complete!</h2>
-              <p class="text-white text-lg mb-4 font-semibold">All scenarios completed for ${patient.name}</p>
-              <p class="text-green-100 text-sm">Select another patient to continue training!</p>
-            </div>
-          </div>
-        `;
+        container.innerHTML = '<div class="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-2xl border-2 border-yellow-400 p-12 text-center relative overflow-hidden">' +
+          '<div class="absolute inset-0 bg-black opacity-20"></div>' +
+          '<div class="relative z-10">' +
+          '<div class="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4 shadow-2xl">' +
+          '<svg class="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+          '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>' +
+          '</svg>' +
+          '</div>' +
+          '<h2 class="text-2xl font-black text-white mb-2 drop-shadow-lg">Patient Complete!</h2>' +
+          '<p class="text-white text-lg mb-4 font-semibold">All scenarios completed for ' + patient.name + '</p>' +
+          '<p class="text-green-100 text-sm">Select another patient to continue training!</p>' +
+          '</div>' +
+          '</div>';
         checkModuleCompletion();
         return;
       }
       
       const scenario = patient.scenarios[state.scenarioIndex];
-      const categoryColors = {
-        prevention: 'from-purple-600 to-indigo-700',
-        identification: 'from-pink-600 to-red-600',
-        treatment: 'from-blue-600 to-cyan-600'
+      const categoryColorMap = {
+        'prevention': 'from-purple-600 to-indigo-700',
+        'identification': 'from-pink-600 to-red-600',
+        'treatment': 'from-blue-600 to-cyan-600'
       };
+      const categoryColor = categoryColorMap[scenario.category];
       
-      container.innerHTML = `
-        <div class="bg-slate-800 rounded-2xl shadow-2xl border-2 border-slate-600 overflow-hidden">
-          <div class="bg-gradient-to-r ${categoryColors[scenario.category]} px-6 py-4 relative overflow-hidden">
-            <div class="absolute inset-0 bg-black opacity-20"></div>
-            <div class="relative z-10">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2 text-white text-sm">
-                  <span class="font-semibold">${patient.name}</span>
-                  <span>•</span>
-                  <span>Scenario ${state.scenarioIndex + 1}/${patient.scenarios.length}</span>
-                </div>
-                <span class="category-badge ${scenario.category}">${scenario.category.toUpperCase()}</span>
-              </div>
-              <h2 class="text-2xl font-black text-white drop-shadow-lg">${scenario.title}</h2>
-            </div>
-          </div>
-          
-          <div class="p-6 border-b-2 border-slate-700">
-            <h3 class="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">📋 Clinical Situation</h3>
-            <p class="text-slate-300 leading-relaxed">${scenario.situation}</p>
-          </div>
-          
-          <div class="px-6 py-4 bg-slate-700 border-b-2 border-slate-600">
-            <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">🔬 Lab Values & Data</h3>
-            <p class="text-sm text-slate-300 font-mono bg-slate-800 p-3 rounded-lg border border-slate-600">${scenario.labValues}</p>
-          </div>
-          
-          <div class="p-6 border-b-2 border-slate-700 bg-gradient-to-br from-slate-800 to-slate-700">
-            <h3 class="text-xs font-bold text-yellow-400 uppercase tracking-wider mb-2">❓ Clinical Question</h3>
-            <p class="text-white font-bold text-lg">${scenario.question}</p>
-          </div>
-          
-          <div class="p-6 space-y-3">
-            ${scenario.choices.map((choice, index) => `
-              <button 
-                onclick="makeDecision(${index})"
-                class="decision-btn w-full text-left p-4 rounded-xl border-2 border-slate-600 bg-slate-700 hover:border-purple-500 hover:bg-slate-600 transition-all shadow-lg"
-              >
-                <div class="flex items-start gap-3">
-                  <span class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold text-white shadow-lg">
-                    ${String.fromCharCode(65 + index)}
-                  </span>
-                  <span class="text-slate-200 font-medium">${choice.text}</span>
-                </div>
-              </button>
-            `).join('')}
-          </div>
-        </div>
-      `;
+      let choicesHtml = '';
+      for (let i = 0; i < scenario.choices.length; i++) {
+        const choice = scenario.choices[i];
+        const letter = String.fromCharCode(65 + i);
+        choicesHtml += '<button onclick="makeDecision(' + i + ')" ' +
+          'class="decision-btn w-full text-left p-4 rounded-xl border-2 border-slate-600 bg-slate-700 hover:border-purple-500 hover:bg-slate-600 transition-all shadow-lg">' +
+          '<div class="flex items-start gap-3">' +
+          '<span class="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold text-white shadow-lg">' +
+          letter +
+          '</span>' +
+          '<span class="text-slate-200 font-medium">' + choice.text + '</span>' +
+          '</div>' +
+          '</button>';
+      }
+      
+      container.innerHTML = '<div class="bg-slate-800 rounded-2xl shadow-2xl border-2 border-slate-600 overflow-hidden">' +
+        '<div class="bg-gradient-to-r ' + categoryColor + ' px-6 py-4 relative overflow-hidden">' +
+        '<div class="absolute inset-0 bg-black opacity-20"></div>' +
+        '<div class="relative z-10">' +
+        '<div class="flex items-center justify-between mb-2">' +
+        '<div class="flex items-center gap-2 text-white text-sm">' +
+        '<span class="font-semibold">' + patient.name + '</span>' +
+        '<span>•</span>' +
+        '<span>Scenario ' + (state.scenarioIndex + 1) + '/' + patient.scenarios.length + '</span>' +
+        '</div>' +
+        '<span class="category-badge ' + scenario.category + '">' + scenario.category.toUpperCase() + '</span>' +
+        '</div>' +
+        '<h2 class="text-2xl font-black text-white drop-shadow-lg">' + scenario.title + '</h2>' +
+        '</div>' +
+        '</div>' +
+        '<div class="p-6 border-b-2 border-slate-700">' +
+        '<h3 class="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">📋 Clinical Situation</h3>' +
+        '<p class="text-slate-300 leading-relaxed">' + scenario.situation + '</p>' +
+        '</div>' +
+        '<div class="px-6 py-4 bg-slate-700 border-b-2 border-slate-600">' +
+        '<h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-2">🔬 Lab Values & Data</h3>' +
+        '<p class="text-sm text-slate-300 font-mono bg-slate-800 p-3 rounded-lg border border-slate-600">' + scenario.labValues + '</p>' +
+        '</div>' +
+        '<div class="p-6 border-b-2 border-slate-700 bg-gradient-to-br from-slate-800 to-slate-700">' +
+        '<h3 class="text-xs font-bold text-yellow-400 uppercase tracking-wider mb-2">❓ Clinical Question</h3>' +
+        '<p class="text-white font-bold text-lg">' + scenario.question + '</p>' +
+        '</div>' +
+        '<div class="p-6 space-y-3">' +
+        choicesHtml +
+        '</div>' +
+        '</div>';
     }
 
     function makeDecision(choiceIndex) {
-      const patient = patients.find(p => p.id === gameState.currentPatientId);
+      let patient = null;
+      for (let i = 0; i < patients.length; i++) {
+        if (patients[i].id === gameState.currentPatientId) {
+          patient = patients[i];
+          break;
+        }
+      }
       const state = gameState.patientStates[patient.id];
       const scenario = patient.scenarios[state.scenarioIndex];
       const choice = scenario.choices[choiceIndex];
@@ -1866,7 +968,7 @@
       gameState.lastDecision = {
         patientId: patient.id,
         scenarioIndex: state.scenarioIndex,
-        choiceIndex,
+        choiceIndex: choiceIndex,
         previousHealth: state.health,
         previousWard: gameState.wardSafety,
         previousXP: gameState.xp
@@ -1903,19 +1005,19 @@
       const xpEarned = document.getElementById('xp-earned');
       
       const outcomeConfig = {
-        optimal: { 
+        'optimal': { 
           color: 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-400', 
           titleColor: 'text-white',
           icon: '✓',
           label: 'Optimal Decision!'
         },
-        suboptimal: { 
+        'suboptimal': { 
           color: 'bg-gradient-to-r from-amber-500 to-orange-600 border-amber-400', 
           titleColor: 'text-white',
           icon: '⚠',
           label: 'Suboptimal Decision'
         },
-        poor: { 
+        'poor': { 
           color: 'bg-gradient-to-r from-red-500 to-pink-600 border-red-400', 
           titleColor: 'text-white',
           icon: '✗',
@@ -1924,9 +1026,9 @@
       };
       
       const config = outcomeConfig[choice.outcome];
-      header.className = `p-5 border-b-2 ${config.color}`;
-      title.className = `text-xl font-bold ${config.titleColor} drop-shadow-lg`;
-      title.textContent = `${config.icon} ${config.label}`;
+      header.className = 'p-5 border-b-2 ' + config.color;
+      title.className = 'text-xl font-bold ' + config.titleColor + ' drop-shadow-lg';
+      title.textContent = config.icon + ' ' + config.label;
       message.textContent = choice.feedback;
       insight.textContent = choice.insight;
       
@@ -1941,7 +1043,13 @@
     function closeModal() {
       document.getElementById('feedback-modal').classList.add('hidden');
       
-      const patient = patients.find(p => p.id === gameState.currentPatientId);
+      let patient = null;
+      for (let i = 0; i < patients.length; i++) {
+        if (patients[i].id === gameState.currentPatientId) {
+          patient = patients[i];
+          break;
+        }
+      }
       const state = gameState.patientStates[patient.id];
       state.scenarioIndex++;
       
@@ -1969,7 +1077,13 @@
       renderPatientList();
       renderScenario();
       
-      const patient = patients.find(p => p.id === gameState.lastDecision.patientId);
+      let patient = null;
+      for (let i = 0; i < patients.length; i++) {
+        if (patients[i].id === gameState.lastDecision.patientId) {
+          patient = patients[i];
+          break;
+        }
+      }
       updateVitalsDisplay(patient);
       updatePatientStatusDisplay(patient);
       
@@ -1978,22 +1092,33 @@
     }
 
     function checkModuleCompletion() {
-      const allComplete = Object.values(gameState.patientStates).every(state => 
-        state.scenarioIndex >= patients.find(p => gameState.patientStates[p.id] === state).scenarios.length
-      );
+      let allComplete = true;
+      for (let i = 0; i < patients.length; i++) {
+        const patient = patients[i];
+        const state = gameState.patientStates[patient.id];
+        if (state.scenarioIndex < patient.scenarios.length) {
+          allComplete = false;
+          break;
+        }
+      }
       
       if (allComplete) {
-        setTimeout(() => showCompletionModal(), 1000);
+        setTimeout(function() { showCompletionModal(); }, 1000);
       }
     }
 
     function showCompletionModal() {
       const modal = document.getElementById('completion-modal');
-      const optimalCount = gameState.decisions.filter(d => d.outcome === 'optimal').length;
+      let optimalCount = 0;
+      for (let i = 0; i < gameState.decisions.length; i++) {
+        if (gameState.decisions[i].outcome === 'optimal') {
+          optimalCount++;
+        }
+      }
       
-      document.getElementById('final-ward-safety').textContent = `${gameState.wardSafety}%`;
-      document.getElementById('optimal-decisions').textContent = `${optimalCount}`;
-      document.getElementById('final-xp').textContent = `${gameState.xp}`;
+      document.getElementById('final-ward-safety').textContent = gameState.wardSafety + '%';
+      document.getElementById('optimal-decisions').textContent = optimalCount;
+      document.getElementById('final-xp').textContent = gameState.xp;
       
       let rank = 'Novice';
       let summary = '';
@@ -2033,34 +1158,33 @@
         achievements: []
       };
       
-      patients.forEach(p => {
+      for (let i = 0; i < patients.length; i++) {
+        const p = patients[i];
         gameState.patientStates[p.id] = {
           health: p.baseHealth,
           scenarioIndex: 0,
           completed: false
         };
-      });
+      }
       
       document.getElementById('completion-modal').classList.add('hidden');
       document.getElementById('feedback-modal').classList.add('hidden');
       
-      document.getElementById('scenario-container').innerHTML = `
-        <div class="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl shadow-2xl border-2 border-yellow-400 p-12 text-center relative overflow-hidden">
-          <div class="absolute inset-0 bg-black opacity-20"></div>
-          <div class="relative z-10">
-            <div class="w-24 h-24 bg-gradient-to-br from-yellow-300 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
-              <svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-            </div>
-            <h2 class="text-3xl font-black text-white mb-4 drop-shadow-lg">MRSA Combat Training</h2>
-            <p class="text-white text-lg mb-6 max-w-xl mx-auto font-medium">Select a patient from the left to start your clinical mission. Master prevention, identification, and treatment protocols to save lives and earn XP!</p>
-            <div class="inline-block px-8 py-4 bg-black/30 backdrop-blur-sm border-2 border-yellow-400 rounded-xl">
-              <p class="text-lg text-yellow-300 font-bold">🏥 5 Patients • 🎯 Multiple Scenarios • 🏆 Earn XP & Streaks</p>
-            </div>
-          </div>
-        </div>
-      `;
+      document.getElementById('scenario-container').innerHTML = '<div class="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl shadow-2xl border-2 border-yellow-400 p-12 text-center relative overflow-hidden">' +
+        '<div class="absolute inset-0 bg-black opacity-20"></div>' +
+        '<div class="relative z-10">' +
+        '<div class="w-24 h-24 bg-gradient-to-br from-yellow-300 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">' +
+        '<svg class="w-14 h-14 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+        '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>' +
+        '</svg>' +
+        '</div>' +
+        '<h2 class="text-3xl font-black text-white mb-4 drop-shadow-lg">MRSA Combat Training</h2>' +
+        '<p class="text-white text-lg mb-6 max-w-xl mx-auto font-medium">Select a patient from the left to start your clinical mission. Master prevention, identification, and treatment protocols to save lives and earn XP!</p>' +
+        '<div class="inline-block px-8 py-4 bg-black/30 backdrop-blur-sm border-2 border-yellow-400 rounded-xl">' +
+        '<p class="text-lg text-yellow-300 font-bold">🏥 5 Patients • 🎯 Multiple Scenarios • 🏆 Earn XP & Streaks</p>' +
+        '</div>' +
+        '</div>' +
+        '</div>';
       
       updateVitalsDisplay(null);
       updatePatientStatusDisplay(null);
@@ -2071,28 +1195,28 @@
       showToast('🔄 Training module reset - good luck!', 'info');
     }
 
-    function showToast(message, type = 'info') {
+    function showToast(message, type) {
       const container = document.getElementById('toast-container');
-      const colors = {
-        success: 'bg-gradient-to-r from-green-500 to-emerald-600',
-        warning: 'bg-gradient-to-r from-amber-500 to-orange-600',
-        error: 'bg-gradient-to-r from-red-500 to-pink-600',
-        info: 'bg-gradient-to-r from-blue-500 to-purple-600'
+      const colorMap = {
+        'success': 'bg-gradient-to-r from-green-500 to-emerald-600',
+        'warning': 'bg-gradient-to-r from-amber-500 to-orange-600',
+        'error': 'bg-gradient-to-r from-red-500 to-pink-600',
+        'info': 'bg-gradient-to-r from-blue-500 to-purple-600'
       };
       
       const toast = document.createElement('div');
-      toast.className = `toast ${colors[type]} text-white px-5 py-3 rounded-xl shadow-2xl text-sm max-w-sm font-semibold border-2 border-white/20`;
+      toast.className = 'toast ' + colorMap[type] + ' text-white px-5 py-3 rounded-xl shadow-2xl text-sm max-w-sm font-semibold border-2 border-white/20';
       toast.textContent = message;
       container.appendChild(toast);
       
-      setTimeout(() => {
+      setTimeout(function() {
         toast.style.opacity = '0';
         toast.style.transition = 'opacity 0.3s';
-        setTimeout(() => toast.remove(), 300);
+        setTimeout(function() { toast.remove(); }, 300);
       }, 4000);
     }
 
     initializeApp();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9bc079b290f51c5f',t:'MTc2ODA5MzIwNy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9bc0849b37e61c5f',t:'MTc2ODA5MzY1NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
